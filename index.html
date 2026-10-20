@@ -302,5 +302,29 @@
 
   render();
 </script>
+<script type="module">
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+
+  import { getFirestore }
+    from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAoSP63TYTeL1CQV4RSyGFmVDIVZkkRo8E",
+    authDomain: "show-ranker-445f4.firebaseapp.com",
+    projectId: "show-ranker-445f4",
+    storageBucket: "show-ranker-445f4.firebasestorage.app",
+    messagingSenderId: "211883510793",
+    appId: "1:211883510793:web:29b73972403fed407dbcd8"
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+
+  // Dejamos la conexión disponible para los siguientes pasos.
+  window.showRankerDB = db;
+
+  console.log("Show Ranker: Firebase inicializado correctamente 💜");
+</script>
 </body>
 </html>
