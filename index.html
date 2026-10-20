@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Show Ranker</title>
+  <style>
+    :root {
+      --bg: #100d19;
+      --panel: #1b1628;
+      --border: #352844;
+      --pink: #ff76b7;
+      --purple: #ad8cff;
+      --text: #f7efff;
+      --muted: #b5a9c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+    }
+    header {
+      padding: 24px 6%;
+      border-bottom: 1px solid var(--border);
+      background: #171122;
+    }
+    .logo { font-size: 25px; font-weight: 800; }
+    .logo span { color: var(--pink); }
+    header p, .muted { color: var(--muted); }
+    main { max-width: 1050px; margin: auto; padding: 28px 18px; }
+    h1 { font-size: clamp(28px, 5vw, 42px); margin-bottom: 8px; }
+    h2 { font-size: 21px; }
+    button, input, select {
+      font: inherit; border-radius: 10px; padding: 11px 13px;
+    }
+    button {
+      cursor: pointer; color: white; border: 0;
+      background: linear-gradient(120deg, #9b70ff, #ed65b2);
+      font-weight: 650;
+    }
+    button.secondary {
+      background: #292139; border: 1px solid var(--border);
+    }
+    input, select {
+      background: #120e1c; color: white;
+      border: 1px solid var(--border); width: 100%;
+    }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 17px; padding: 19px; margin: 20px 0;
+    }
+    .series-list, .character-list { display: grid; gap: 14px; }
+    .series-list { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .series-card {
+      text-align: left; padding: 20px; min-height: 130px;
+      background: linear-gradient(140deg, #332047, #20182e);
+      border: 1px solid var(--border); border-radius: 15px;
+    }
+    .series-card.active { border: 2px solid var(--pink); }
+    .series-card strong { display: block; font-size: 19px; }
+    .series-card small { color: #d3c2e7; display: block; margin-top: 8px; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .between { justify-content: space-between; }
+    .form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; }
+    .character {
+      display: grid; grid-template-columns: 1fr auto;
+      gap: 12px; align-items: center;
+      border-bottom: 1px solid var(--border); padding: 15px 0;
+    }
+    .character:last-child { border-bottom: 0; }
+    .rank { color: var(--pink); font-weight: 800; margin-right: 8px; }
+    .score { font-size: 23px; font-weight: 800; color: var(--purple); }
+    .actions { display: flex; gap: 7px; align-items: center; }
+    .actions button { padding: 8px 12px; }
+    .tag {
+      display: inline-block; border-radius: 20px; padding: 5px 9px;
+      background: #30213f; color: #e6c8ff; font-size: 12px;
+    }
+    .history-item { padding: 11px 0; border-bottom: 1px solid var(--border); }
+    .history-item:last-child { border: 0; }
+    .empty { color: var(--muted); padding: 18px 0; }
+    .hidden { display: none; }
+    footer { text-align: center; padding: 30px; color: var(--muted); }
+    @media(max-width: 600px) {
+      .form { grid-template-columns: 1fr; }
+      .character { grid-template-columns: 1fr; }
+      .actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">SHOW <span>RANKER</span></div>
+  <p>Las series que amas. Los personajes que juzgas.</p>
+</header>
+
+<main>
+  <h1>Tu universo de series</h1>
+  <p class="muted">Cada punto cuenta una historia.</p>
+
+  <section class="panel">
+    <div class="row between">
+      <h2>Mis series</h2>
+      <span class="tag" id="seriesCount">0 series</span>
+    </div>
+    <div class="series-list" id="seriesList"></div>
+    <h2>Agregar una serie</h2>
+    <form class="form" id="seriesForm">
+      <input id="seriesName" placeholder="Nombre de la serie" required>
+      <input id="seriesEmoji" placeholder="Emoji, por ejemplo 🎬" value="📺">
+      <button type="submit">+ Agregar</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="row between">
+      <div>
+        <h2 id="activeTitle">Ranking</h2>
+        <p class="muted">Selecciona una serie para ver sus personajes.</p>
+      </div>
+      <select id="category" aria-label="Categoría de puntuación" style="max-width:230px">
+        <option>Empatía</option>
+        <option>Risa</option>
+        <option>Carisma</option>
+        <option>Desarrollo del personaje</option>
+        <option>Favoritismo personal</option>
+        <option>Decisiones cuestionables</option>
+        <option>Química con otros personajes</option>
+        <option>Inteligencia</option>
+      </select>
+    </div>
+    <form class="form" id="characterForm">
+      <input id="characterName" placeholder="Nombre del personaje" required>
+      <input id="characterEmoji" placeholder="Emoji, por ejemplo 🌟" value="⭐">
+      <button type="submit">+ Personaje</button>
+    </form>
+    <div id="characterList" class="character-list"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Historial de cambios</h2>
+    <p class="muted">Los últimos cambios de puntuación de la serie seleccionada.</p>
+    <div id="history"></div>
+  </section>
+  <p class="muted">Prototipo inicial · Hecho con cariño para los fans de las series como mi novio <3.</p>
+</main>
+
+<footer>SHOW RANKER · Tu ranking, tus reglas ✨</footer>
+
+<script>
+  const categories = [
+    "Empatía", "Risa", "Carisma", "Desarrollo del personaje",
+    "Favoritismo personal", "Decisiones cuestionables",
+    "Química con otros personajes", "Inteligencia"
+  ];
+
+  let nextId = 3;
+  let selectedSeries = 1;
+  let activeCategory = categories[0];
+
+  const series = [
+    {
+      id: 1, name: "Mi primera serie", emoji: "🌙",
+      characters: [
+        { id: 1, name: "Personaje A", emoji: "💜", scores: {}, history: [] },
+        { id: 2, name: "Personaje B", emoji: "🩷", scores: {}, history: [] }
+      ]
+    },
+    {
+      id: 2, name: "Otra serie", emoji: "✨", characters: []
+    }
+  ];
+
+  function getSeries() {
+    return series.find(s => s.id === selectedSeries);
+  }
+
+  function scoreOf(character) {
+    return character.scores[activeCategory] || 0;
+  }
+
+  function render() {
+    document.getElementById("seriesCount").textContent =
+      series.length + (series.length === 1 ? " serie" : " series");
+
+    document.getElementById("seriesList").innerHTML = series.map(s => `
+      <button class="series-card ${s.id === selectedSeries ? "active" : ""}"
+        data-series="${s.id}">
+        <strong>${s.emoji} ${escapeHTML(s.name)}</strong>
+        <small>${s.characters.length} personajes · Ver ranking →</small>
+      </button>
+    `).join("");
+
+    const current = getSeries();
+    document.getElementById("activeTitle").textContent =
+      "🏆 " + current.name;
+    document.getElementById("characterList").innerHTML =
+      current.characters.length
+      ? [...current.characters]
+          .sort((a, b) => scoreOf(b) - scoreOf(a))
+          .map((c, i) => `
+            <div class="character">
+              <div>
+                <div><span class="rank">#${i + 1}</span>
+                  <strong>${c.emoji} ${escapeHTML(c.name)}</strong></div>
+                <div class="muted">${activeCategory}</div>
+                <span class="tag">${Object.keys(c.scores).length} categorías puntuadas</span>
+              </div>
+              <div class="actions">
+                <button class="secondary" data-change="-1" data-id="${c.id}">−</button>
+                <span class="score">${scoreOf(c)}</span>
+                <button data-change="1" data-id="${c.id}">+</button>
+              </div>
+            </div>
+          `).join("")
+      : '<p class="empty">Todavía no hay personajes. ¡Agrega el primero!</p>';
+
+    const events = current.characters
+      .flatMap(c => c.history.map(h => ({...h, character: c.name, emoji: c.emoji})))
+      .sort((a, b) => b.time - a.time).slice(0, 20);
+
+    document.getElementById("history").innerHTML = events.length
+      ? events.map(h => `
+        <div class="history-item">
+          <strong>${h.emoji} ${escapeHTML(h.character)}</strong>
+          <span class="tag">${escapeHTML(h.category)}</span>
+          <span style="color:${h.delta > 0 ? "#ff76b7" : "#ad8cff"}">
+            ${h.delta > 0 ? "+" : ""}${h.delta}
+          </span>
+          <div class="muted">${new Date(h.time).toLocaleString("es-MX")}</div>
+        </div>
+      `).join("")
+      : '<p class="empty">Aquí aparecerán los cambios cuando empieces a puntuar.</p>';
+  }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;",
+      '"': "&quot;", "'": "&#39;"
+    }[ch]));
+  }
+
+  document.getElementById("seriesList").addEventListener("click", e => {
+    const button = e.target.closest("[data-series]");
+    if (!button) return;
+    selectedSeries = Number(button.dataset.series);
+    render();
+  });
+
+  document.getElementById("category").addEventListener("change", e => {
+    activeCategory = e.target.value;
+    render();
+  });
+
+  document.getElementById("seriesForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = document.getElementById("seriesName").value.trim();
+    if (!name) return;
+    series.push({
+      id: nextId++, name,
+      emoji: document.getElementById("seriesEmoji").value.trim() || "📺",
+      characters: []
+    });
+    selectedSeries = series[series.length - 1].id;
+    e.target.reset();
+    document.getElementById("seriesEmoji").value = "📺";
+    render();
+  });
+
+  document.getElementById("characterForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = document.getElementById("characterName").value.trim();
+    if (!name) return;
+    getSeries().characters.push({
+      id: nextId++, name,
+      emoji: document.getElementById("characterEmoji").value.trim() || "⭐",
+      scores: {}, history: []
+    });
+    e.target.reset();
+    document.getElementById("characterEmoji").value = "⭐";
+    render();
+  });
+
+  document.getElementById("characterList").addEventListener("click", e => {
+    const button = e.target.closest("[data-change]");
+    if (!button) return;
+    const character = getSeries().characters.find(
+      c => c.id === Number(button.dataset.id)
+    );
+    const delta = Number(button.dataset.change);
+    const before = scoreOf(character);
+    const after = before + delta;
+    character.scores[activeCategory] = after;
+    character.history.push({
+      category: activeCategory, delta,
+      before, after, time: Date.now()
+    });
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
