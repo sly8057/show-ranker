@@ -47,6 +47,15 @@ input,select{background:#120e1c;color:white;border:1px solid var(--border);width
 .notice{padding:12px 14px;border-radius:10px;background:#241b35;border:1px solid var(--border);margin:12px 0;overflow-wrap:anywhere}
 .hidden{display:none!important}
 footer{text-align:center;padding:25px;color:var(--muted)}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px;z-index:1000}
+.modal{width:min(100%,520px);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:17px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+.modal h2{margin-top:0}.modal .field{margin:14px 0}.modal label{display:block;margin-bottom:7px;color:var(--muted);font-size:14px}
+.modal textarea{font:inherit;width:100%;min-height:88px;resize:vertical;background:#120e1c;color:white;border:1px solid var(--border);border-radius:10px;padding:11px 13px}
+.modal-actions{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:18px}
+.history-details{margin-top:7px;color:var(--muted);font-size:14px;line-height:1.55}.history-user{color:var(--pink);font-weight:650}
+@media(max-width:600px){.modal{padding:17px}.modal-actions button{flex:1}}
+
 @media(max-width:600px){.form{grid-template-columns:1fr}.character{grid-template-columns:1fr}.actions{flex-wrap:wrap}}
 </style>
 </head>
@@ -107,6 +116,27 @@ footer{text-align:center;padding:25px;color:var(--muted)}
 </main>
 <footer>SHOW RANKER · Hecho con cariño para mi novio <3</footer>
 
+
+<div id="scoreModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="scoreModalTitle">
+  <form id="scoreForm" class="modal">
+    <h2 id="scoreModalTitle">Registrar cambio de puntuación</h2>
+    <p id="scoreModalDescription" class="muted"></p>
+    <div class="field"><label for="scoreSeason">Temporada *</label><input id="scoreSeason" type="number" min="1" step="1" placeholder="Ej. 1" required></div>
+    <div class="field"><label for="scoreEpisode">Episodio *</label><input id="scoreEpisode" type="number" min="1" step="1" placeholder="Ej. 3" required></div>
+    <div class="field"><label for="scoreMotive">Motivo *</label>
+      <select id="scoreMotive" required>
+        <option value="">Selecciona un motivo</option>
+        <option>Me hizo reír</option><option>Mostró empatía</option>
+        <option>Tuvo un gran desarrollo</option><option>Tomó una buena decisión</option>
+        <option>Tomó una mala decisión</option><option>Tuvo química con otro personaje</option>
+        <option>Fue un momento favorito</option><option>Me decepcionó</option><option>Otro</option>
+      </select>
+    </div>
+    <div class="field"><label for="scoreComment">Comentario (opcional)</label><textarea id="scoreComment" maxlength="500" placeholder="¿Qué pasó en este episodio?"></textarea></div>
+    <div class="modal-actions"><button type="button" id="cancelScoreBtn" class="secondary">Cancelar</button><button type="submit">Guardar cambio</button></div>
+  </form>
+</div>
+
 <script type="module">
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -158,6 +188,18 @@ let stopListening = null;
 let saving = false;
 let pendingChanges = 0;
 let applyingRemote = false;
+let pendingScoreChange = null;
+
+const displayNames = {
+  "valefanyamor@gmail.com": "Estef",
+  "adrianguillen2004@gmail.com": "Adrian",
+  "a22310383@ceti.mx": "Prueba"
+};
+
+function displayNameFor(email) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  return displayNames[normalizedEmail] || "Usuario";
+}
 
 const newId = () => crypto.randomUUID();
 
@@ -233,16 +275,28 @@ function render() {
     .slice(0, 50);
 
   document.getElementById("history").innerHTML = events.length
-    ? events.map(h => `
-      <div class="history-item">
-        <strong>${escapeHTML(h.emoji || "⭐")} ${escapeHTML(h.character)}</strong>
-        <span class="tag">${escapeHTML(h.category)}</span>
-        <span style="color:${h.delta > 0 ? "#ff76b7" : "#ad8cff"}">
-          ${h.delta > 0 ? "+" : ""}${h.delta}
-        </span>
-        <div class="muted">${new Date(h.time).toLocaleString("es-MX")}</div>
-      </div>
-    `).join("")
+    ? events.map(h => {
+        const hasEpisode = h.season !== undefined && h.season !== null &&
+          h.episode !== undefined && h.episode !== null;
+        const episodeText = hasEpisode
+          ? `Temporada ${escapeHTML(h.season)} · Episodio ${escapeHTML(h.episode)}`
+          : "Registro anterior (sin temporada ni episodio)";
+        const motiveText = h.motive ? `<div>Motivo: ${escapeHTML(h.motive)}</div>` : "";
+        const commentText = h.comment ? `<div>Comentario: ${escapeHTML(h.comment)}</div>` : "";
+        const userText = h.by ? escapeHTML(displayNameFor(h.by)) : "Usuario";
+        const dateText = h.time ? new Date(h.time).toLocaleString("es-MX") : "Fecha no disponible";
+        return `
+          <div class="history-item">
+            <strong>${escapeHTML(h.emoji || "⭐")} ${escapeHTML(h.character)}</strong>
+            <span class="tag">${escapeHTML(h.category || "Categoría")}</span>
+            <span style="color:${h.delta > 0 ? "#ff76b7" : "#ad8cff"}">${h.delta > 0 ? "+" : ""}${escapeHTML(h.delta)}</span>
+            <div class="history-details">
+              <div>${episodeText}</div>${motiveText}${commentText}
+              <div>Modificado por: <span class="history-user">${userText}</span></div>
+              <div>${escapeHTML(dateText)}</div>
+            </div>
+          </div>`;
+      }).join("")
     : '<p class="empty">Aún no hay cambios de puntuación.</p>';
 }
 
@@ -284,7 +338,7 @@ function requestSave() {
 
 async function startApp(user) {
   currentUser = user;
-  userInfo.textContent = user.email || user.displayName || "Sesión iniciada";
+  userInfo.textContent = `Sesión iniciada como ${displayNameFor(user.email)}`;
   loginBtn.classList.add("hidden");
   logoutBtn.classList.remove("hidden");
   appEl.classList.remove("hidden");
@@ -413,21 +467,69 @@ document.getElementById("characterForm").addEventListener("submit", e => {
   requestSave();
 });
 
+const scoreModal = document.getElementById("scoreModal");
+const scoreForm = document.getElementById("scoreForm");
+
+function closeScoreModal() {
+  scoreModal.classList.add("hidden");
+  scoreForm.reset();
+  pendingScoreChange = null;
+}
+
+document.getElementById("cancelScoreBtn").addEventListener("click", closeScoreModal);
+scoreModal.addEventListener("click", e => {
+  if (e.target === scoreModal) closeScoreModal();
+});
+
 document.getElementById("characterList").addEventListener("click", e => {
   const button = e.target.closest("[data-change]");
   if (!button || !currentUser) return;
   const character = getSeries()?.characters.find(c => c.id === button.dataset.id);
   if (!character) return;
 
-  const delta = Number(button.dataset.change);
-  const before = scoreOf(character);
+  pendingScoreChange = { characterId: character.id, delta: Number(button.dataset.change), category: activeCategory };
+  document.getElementById("scoreModalTitle").textContent =
+    pendingScoreChange.delta > 0 ? "Sumar 1 punto" : "Restar 1 punto";
+  document.getElementById("scoreModalDescription").textContent =
+    `${character.name} · ${activeCategory}. Completa la temporada y el episodio.`;
+  scoreModal.classList.remove("hidden");
+  document.getElementById("scoreSeason").focus();
+});
+
+scoreForm.addEventListener("submit", e => {
+  e.preventDefault();
+  if (!currentUser || !pendingScoreChange) return;
+
+  const season = Number(document.getElementById("scoreSeason").value);
+  const episode = Number(document.getElementById("scoreEpisode").value);
+  const motive = document.getElementById("scoreMotive").value;
+  const comment = document.getElementById("scoreComment").value.trim();
+
+  if (!Number.isInteger(season) || season < 1 || !Number.isInteger(episode) || episode < 1 || !motive) {
+    showStatus("Indica una temporada, un episodio y un motivo válidos.", true);
+    return;
+  }
+
+  const character = getSeries()?.characters.find(c => c.id === pendingScoreChange.characterId);
+  if (!character) {
+    closeScoreModal();
+    showStatus("No se encontró el personaje. Vuelve a intentarlo.", true);
+    return;
+  }
+
+  const delta = pendingScoreChange.delta;
+  const category = pendingScoreChange.category;
+  const before = Number(character.scores?.[category] || 0);
   const after = before + delta;
-  character.scores[activeCategory] = after;
+  character.scores = character.scores || {};
+  character.scores[category] = after;
   character.history = character.history || [];
   character.history.push({
-    category: activeCategory, delta, before, after,
+    category, delta, before, after, season, episode, motive, comment,
     time: Date.now(), by: currentUser.email
   });
+
+  closeScoreModal();
   requestSave();
 });
 
